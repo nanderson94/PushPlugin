@@ -66,7 +66,6 @@ public class GCMIntentService extends IntentService {
 		Bundle extras = intent.getExtras();
 		GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(this);
 		String messageType = gcm.getMessageType(intent);
-		json = new JSONObject()
 
 		if (extras != null)
 		{
