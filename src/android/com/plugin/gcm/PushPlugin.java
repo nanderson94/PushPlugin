@@ -2,7 +2,7 @@ package com.plugin.gcm;
 
 import android.app.NotificationManager;
 import android.content.Context;
-import android.content.SharedPreferences
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import com.google.android.gms.common.GooglePlayServicesUtil;

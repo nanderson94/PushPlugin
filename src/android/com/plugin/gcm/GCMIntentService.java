@@ -7,16 +7,19 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
 
-import com.google.android.gcm.GCMBaseIntentService;
+// import android.support.v4.content.WakefulBroadcastReceiver;
+// import com.google.android.gcm.GCMBaseIntentService;
 
 @SuppressLint("NewApi")
-public class GCMIntentService extends GCMBaseIntentService {
+public class GCMIntentService extends IntentService {
 
 	private static final String TAG = "GCMIntentService";
 	
@@ -24,58 +27,75 @@ public class GCMIntentService extends GCMBaseIntentService {
 		super("GCMIntentService");
 	}
 
+	// @Override
+	// public void onRegistered(Context context, String regId) {
+
+	// 	Log.v(TAG, "onRegistered: "+ regId);
+
+	// 	JSONObject json;
+
+	// 	try
+	// 	{
+	// 		json = new JSONObject().put("event", "registered");
+	// 		json.put("regid", regId);
+
+	// 		Log.v(TAG, "onRegistered: " + json.toString());
+
+	// 		// Send this JSON data to the JavaScript application above EVENT should be set to the msg type
+	// 		// In this case this is the registration ID
+	// 		PushPlugin.sendJavascript( json );
+
+	// 	}
+	// 	catch( JSONException e)
+	// 	{
+	// 		// No message to the user is sent, JSON failed
+	// 		Log.e(TAG, "onRegistered: JSON exception");
+	// 	}
+	// }
+
+	// @Override
+	// public void onUnregistered(Context context, String regId) {
+	// 	Log.d(TAG, "onUnregistered - regId: " + regId);
+	// }
+
 	@Override
-	public void onRegistered(Context context, String regId) {
-
-		Log.v(TAG, "onRegistered: "+ regId);
-
-		JSONObject json;
-
-		try
-		{
-			json = new JSONObject().put("event", "registered");
-			json.put("regid", regId);
-
-			Log.v(TAG, "onRegistered: " + json.toString());
-
-			// Send this JSON data to the JavaScript application above EVENT should be set to the msg type
-			// In this case this is the registration ID
-			PushPlugin.sendJavascript( json );
-
-		}
-		catch( JSONException e)
-		{
-			// No message to the user is sent, JSON failed
-			Log.e(TAG, "onRegistered: JSON exception");
-		}
-	}
-
-	@Override
-	public void onUnregistered(Context context, String regId) {
-		Log.d(TAG, "onUnregistered - regId: " + regId);
-	}
-
-	@Override
-	protected void onMessage(Context context, Intent intent) {
-		Log.d(TAG, "onMessage - context: " + context);
+	protected void onHandleIntent(Context context, Intent intent) {
+		Log.d(TAG, "onHandleIntent - context: " + context);
 
 		// Extract the payload from the message
 		Bundle extras = intent.getExtras();
+		GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(this);
+		String messageType = gcm.getMessageType(intent);
+		json = new JSONObject()
+
 		if (extras != null)
 		{
-			// if we are in the foreground, just surface the payload, else post it to the statusbar
-            if (PushPlugin.isInForeground()) {
-				extras.putBoolean("foreground", true);
-                PushPlugin.sendExtras(extras);
-			}
-			else {
-				extras.putBoolean("foreground", false);
+			if (GoogleCloudMessaging.MESSAGE_TYPE_SEND_ERROR.equals(messageType)) {
+				JSONObject json = new JSONObject();
 
-                // Send a notification if there is a message
-                if (extras.getString("message") != null && extras.getString("message").length() != 0) {
-                    createNotification(context, extras);
-                }
-            }
+				json.put("event", "error");
+				json.put("message", extras.toString());
+				PushPlugin.sendJavascript(json);
+			} else if (GoogleCloudMessaging.MESSAGE_TYPE_DELETED.equals(messageType)) {
+				JSONObject json = new JSONObject();
+				json.put("event", "deleted");
+				json.put("message", extras.toString());
+				PushPlugin.sendJavascript(json);
+			} else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
+				// if we are in the foreground, just surface the payload, else post it to the statusbar
+	            if (PushPlugin.isInForeground()) {
+					extras.putBoolean("foreground", true);
+	                PushPlugin.sendExtras(extras);
+				}
+				else {
+					extras.putBoolean("foreground", false);
+
+	                // Send a notification if there is a message
+	                if (extras.getString("message") != null && extras.getString("message").length() != 0) {
+	                    createNotification(context, extras);
+	                }
+	            }
+			}
         }
 	}
 
