@@ -29,6 +29,7 @@
 	<platform name="android">
 
 		<dependency id="com.google.playservices" url="https://github.com/MobileChromeApps/google-play-services.git">
+		</dependency>
 		<config-file target="res/xml/config.xml" parent="/*">
 			<feature name="PushPlugin" >
 				<param name="android-package" value="com.plugin.gcm.PushPlugin"/>
