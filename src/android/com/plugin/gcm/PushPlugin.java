@@ -15,6 +15,8 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import com.google.android.gms.common.ConnectionResult;
+import java.io.IOException;
 
 import java.util.Iterator;
 
@@ -27,7 +29,10 @@ public class PushPlugin extends CordovaPlugin {
 
 	public static final String REGISTER = "register";
 	public static final String UNREGISTER = "unregister";
+	public static final String PROPERTY_REG_ID = "registration_id";
+	public static final String EXTRA_MESSAGE = "message";
 	public static final String EXIT = "exit";
+	private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
 
 	private static CordovaWebView gWebView;
 	private static String gECB;
@@ -35,7 +40,6 @@ public class PushPlugin extends CordovaPlugin {
 	private static Bundle gCachedExtras = null;
 	private static boolean gForeground = false;
 
-	private final static int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
 
 	/**
 	 * Gets the application context from cordova's main activity.
@@ -73,14 +77,18 @@ public class PushPlugin extends CordovaPlugin {
 
 				context = getApplicationContext();
 
-				gcm = GoogleCloudMessaging.getInstance(this);
-				regid = getRegistrationId(context);
+				GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(getApplicationContext());
+				// regid = getRegistrationId(context);
 
-				if (regid.isEmpty()) {
+				// if (regid.isEmpty()) {
 					// registerInBackground(gSenderID);
-					regid = gcm.register(gSenderID);
-					storeRegistrationId(context, regid);
-				}
+					try {
+						regid = gcm.register(gSenderID);
+					} catch (IOException exception) {
+						Log.d(TAG, "IOException!");
+					}
+					// storeRegistrationId(context, regid);
+				// }
 				result = true;
 				callbackContext.success(regid);
 			} catch (JSONException e) {
@@ -97,8 +105,12 @@ public class PushPlugin extends CordovaPlugin {
 
 		} else if (UNREGISTER.equals(action)) {
 
-			gcm = GoogleCloudMessaging.getInstance(this);
-			gcm.unregister(getApplicationContext());
+			GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(getApplicationContext());
+			try {
+				gcm.unregister();
+			} catch (IOException exception) {
+				Log.d(TAG, "IOException!");
+			}
 
 			Log.v(TAG, "UNREGISTER");
 			result = true;
@@ -119,34 +131,26 @@ public class PushPlugin extends CordovaPlugin {
 	 * @return registration ID, or empty string if there is no existing
 	 *         registration ID.
 	 */
-	private String getRegistrationId(Context context) {
-		final SharedPreferences prefs = getGCMPreferences(context);
-		String registrationId = prefs.getString(PROPERTY_REG_ID, "");
-		if (registrationId.isEmpty()) {
-			Log.i(TAG, "Registration not found");
-			return "";
-		}
-		// Check if the app was updated; if so, it must clear the registration ID
-		// since the existing regID is not guaranteed to work with the new
-		// app version
-		int registeredVersion = prefs.getInt(PROPERTY_APP_VERSION, Integer.MIN_VALUE);
-		int currentVersion = getAppVersion(context);
-		if (registeredVersion != currentVersion) {
-			Log.i(TAG, "App version changed.");
-			return "";
-		}
-		return registrationId;
-	}
+	// private String getRegistrationId(Context context) {
+	// 	final SharedPreferences prefs = getGCMPreferences(context);
+	// 	String registrationId = prefs.getString(PROPERTY_REG_ID, "");
+	// 	if (registrationId.isEmpty()) {
+	// 		Log.i(TAG, "Registration not found");
+	// 		return "";
+	// 	}
+
+	// 	return registrationId;
+	// }
 
 	/**
 	 * @return Application's {@code SharedPreferences}.
 	 */
-	private SharedPreferences getGCMPreferences(Context context) {
-		// This sample app persists the registration ID in shared preferences, but
-		// how you store the regID in your app is up to you.
-		return getSharedPreferences(PushHandlerActivity.class.getSimpleName(),
-				Context.MODE_PRIVATE);
-	}
+	// private SharedPreferences getGCMPreferences(Context context) {
+	// 	// This sample app persists the registration ID in shared preferences, but
+	// 	// how you store the regID in your app is up to you.
+	// 	return getSharedPreferences(PushHandlerActivity.class.getSimpleName(),
+	// 			Context.MODE_PRIVATE);
+	// }
 	/*
 	private void registerInBackground(String SenderId) {
 		new AsyncTask() {
@@ -164,22 +168,19 @@ public class PushPlugin extends CordovaPlugin {
 		}
 	}*/
 
-	/**
-	 * Stores the registration ID and app versionCode in the application's
-	 * {@code SharedPreferences}.
-	 *
-	 * @param context application's context.
-	 * @param regId registration ID
-	 */
-	private void storeRegistrationId(Context context, String regId) {
-		final SharedPreferences prefs = getGCMPreferences(context);
-		int appVersion = getAppVersion(context);
-		Log.i(TAG, "Saving regId on app version " + appVersion);
-		SharedPreferences.Editor editor = prefs.edit();
-		editor.putString(PROPERTY_REG_ID, regId);
-		editor.putInt(PROPERTY_APP_VERSION, appVersion);
-		editor.commit();
-	}
+	// /**
+	//  * Stores the registration ID and app versionCode in the application's
+	//  * {@code SharedPreferences}.
+	//  *
+	//  * @param context application's context.
+	//  * @param regId registration ID
+	//  */
+	// private void storeRegistrationId(Context context, String regId) {
+	// 	final SharedPreferences prefs = getGCMPreferences(context);
+	// 	SharedPreferences.Editor editor = prefs.edit();
+	// 	editor.putString(PROPERTY_REG_ID, regId);
+	// 	editor.commit();
+	// }
 
 	/*
 	 * Sends a json object to the client as parameter to a method which is defined in gECB.
@@ -240,13 +241,13 @@ public class PushPlugin extends CordovaPlugin {
 	}
 
 	private boolean checkPlayServices() {
-		int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
+		int resultCode = GooglePlayServicesUtil.isGooglePlayServicesAvailable(getApplicationContext());
 		if (resultCode != ConnectionResult.SUCCESS) {
 			if (GooglePlayServicesUtil.isUserRecoverableError(resultCode)) {
-				GooglePlayServicesUtil.getErrorDialog(resultCode, this, PLAY_SERVICES_RESOLUTION_REQUEST).show();
+				GooglePlayServicesUtil.getErrorDialog(resultCode, this.cordova.getActivity(), PLAY_SERVICES_RESOLUTION_REQUEST).show();
 			} else {
 				Log.i(TAG, "This device does not support Play Services.");
-				finish();
+				// finish();
 			}
 			return false;
 		}

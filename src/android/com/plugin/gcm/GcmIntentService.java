@@ -18,13 +18,12 @@ import com.google.android.gms.gcm.GoogleCloudMessaging;
 // import android.support.v4.content.WakefulBroadcastReceiver;
 // import com.google.android.gcm.GCMBaseIntentService;
 
-@SuppressLint("NewApi")
-public class GCMIntentService extends IntentService {
+public class GcmIntentService extends IntentService {
 
-	private static final String TAG = "GCMIntentService";
+	private static final String TAG = "GcmIntentService";
 	
-	public GCMIntentService() {
-		super("GCMIntentService");
+	public GcmIntentService() {
+		super("GcmIntentService");
 	}
 
 	// @Override
@@ -59,7 +58,9 @@ public class GCMIntentService extends IntentService {
 	// }
 
 	@Override
-	protected void onHandleIntent(Context context, Intent intent) {
+	protected void onHandleIntent(Intent intent) {
+		Context context = getApplicationContext();
+
 		Log.d(TAG, "onHandleIntent - context: " + context);
 
 		// Extract the payload from the message
@@ -69,31 +70,35 @@ public class GCMIntentService extends IntentService {
 
 		if (extras != null)
 		{
-			if (GoogleCloudMessaging.MESSAGE_TYPE_SEND_ERROR.equals(messageType)) {
-				JSONObject json = new JSONObject();
+			try {
+				if (GoogleCloudMessaging.MESSAGE_TYPE_SEND_ERROR.equals(messageType)) {
+					JSONObject json = new JSONObject();
 
-				json.put("event", "error");
-				json.put("message", extras.toString());
-				PushPlugin.sendJavascript(json);
-			} else if (GoogleCloudMessaging.MESSAGE_TYPE_DELETED.equals(messageType)) {
-				JSONObject json = new JSONObject();
-				json.put("event", "deleted");
-				json.put("message", extras.toString());
-				PushPlugin.sendJavascript(json);
-			} else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
-				// if we are in the foreground, just surface the payload, else post it to the statusbar
-	            if (PushPlugin.isInForeground()) {
-					extras.putBoolean("foreground", true);
-	                PushPlugin.sendExtras(extras);
+					json.put("event", "error");
+					json.put("message", extras.toString());
+					PushPlugin.sendJavascript(json);
+				} else if (GoogleCloudMessaging.MESSAGE_TYPE_DELETED.equals(messageType)) {
+					JSONObject json = new JSONObject();
+					json.put("event", "deleted");
+					json.put("message", extras.toString());
+					PushPlugin.sendJavascript(json);
+				} else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
+					// if we are in the foreground, just surface the payload, else post it to the statusbar
+		            if (PushPlugin.isInForeground()) {
+						extras.putBoolean("foreground", true);
+		                PushPlugin.sendExtras(extras);
+					}
+					else {
+						extras.putBoolean("foreground", false);
+
+		                // Send a notification if there is a message
+		                if (extras.getString("message") != null && extras.getString("message").length() != 0) {
+		                    createNotification(context, extras);
+		                }
+		            }
 				}
-				else {
-					extras.putBoolean("foreground", false);
-
-	                // Send a notification if there is a message
-	                if (extras.getString("message") != null && extras.getString("message").length() != 0) {
-	                    createNotification(context, extras);
-	                }
-	            }
+			} catch (JSONException exception) {
+				Log.d(TAG, "JSON Exception was had!");
 			}
         }
 	}
@@ -164,8 +169,8 @@ public class GCMIntentService extends IntentService {
 		return (String)appName;
 	}
 	
-	@Override
-	public void onError(Context context, String errorId) {
+	// @Override
+	public void onError(String errorId) {
 		Log.e(TAG, "onError - errorId: " + errorId);
 	}
 
