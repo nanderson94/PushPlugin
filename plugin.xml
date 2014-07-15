@@ -55,7 +55,6 @@
 					<category android:name="$PACKAGE_NAME" />
 				</intent-filter>
 			</receiver>
-			<service android:name="com.plugin.gcm.GCMIntentService" />
 		</config-file>
 
 		<source-file src="src/android/com/plugin/gcm/CordovaGCMBroadcastReceiver.java" target-dir="src/com/plugin/gcm/" />
