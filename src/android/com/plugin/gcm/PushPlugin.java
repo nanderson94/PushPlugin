@@ -1,6 +1,7 @@
 package com.plugin.gcm;
 
 import android.app.NotificationManager;
+import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -20,6 +21,9 @@ import java.io.IOException;
 
 import java.util.Iterator;
 
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.PackageManager;
+
 /**
  * @author awysocki
  */
@@ -30,6 +34,7 @@ public class PushPlugin extends CordovaPlugin {
 	public static final String REGISTER = "register";
 	public static final String UNREGISTER = "unregister";
 	public static final String PROPERTY_REG_ID = "registration_id";
+	public static final String PROPERTY_APPVERSION = "app_version";
 	public static final String EXTRA_MESSAGE = "message";
 	public static final String EXIT = "exit";
 	private static final int PLAY_SERVICES_RESOLUTION_REQUEST = 9000;
@@ -47,6 +52,9 @@ public class PushPlugin extends CordovaPlugin {
 	 */
 	private Context getApplicationContext() {
 		return this.cordova.getActivity().getApplicationContext();
+	}
+	private Activity getApplicationActivity() {
+		return this.cordova.getActivity();
 	}
 
 	GoogleCloudMessaging gcm;
@@ -78,17 +86,17 @@ public class PushPlugin extends CordovaPlugin {
 				context = getApplicationContext();
 
 				GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(getApplicationContext());
-				// regid = getRegistrationId(context);
+				regid = getRegistrationId(context);
 
-				// if (regid.isEmpty()) {
+				if (regid.isEmpty()) {
 					// registerInBackground(gSenderID);
 					try {
 						regid = gcm.register(gSenderID);
 					} catch (IOException exception) {
 						Log.d(TAG, "IOException!");
 					}
-					// storeRegistrationId(context, regid);
-				// }
+					storeRegistrationId(context, regid);
+				}
 				result = true;
 				callbackContext.success(regid);
 			} catch (JSONException e) {
@@ -131,16 +139,24 @@ public class PushPlugin extends CordovaPlugin {
 	 * @return registration ID, or empty string if there is no existing
 	 *         registration ID.
 	 */
-	// private String getRegistrationId(Context context) {
-	// 	final SharedPreferences prefs = getGCMPreferences(context);
-	// 	String registrationId = prefs.getString(PROPERTY_REG_ID, "");
-	// 	if (registrationId.isEmpty()) {
-	// 		Log.i(TAG, "Registration not found");
-	// 		return "";
-	// 	}
-
-	// 	return registrationId;
-	// }
+	private String getRegistrationId(Context context) {
+		final SharedPreferences prefs = getGCMPreferences(context);
+		String registrationId = prefs.getString(PROPERTY_REG_ID, "");
+		if (registrationId.isEmpty()) {
+			Log.i(TAG, "Registration not found");
+			return "";
+		}
+		// Check if the app was updated; if so, it must clear the registration ID
+		// since the existing regID is not guaranteed to work with the new
+		// app version
+		String registeredVersion = prefs.getString(PROPERTY_APPVERSION, "");
+		String currentVersion = getVersion();
+		if (registeredVersion.equals(currentVersion)) {
+			Log.i(TAG, "Got registrationId from cache");
+			return registrationId;
+		}
+		return "";
+	}
 
 	/**
 	 * @return Application's {@code SharedPreferences}.
@@ -168,19 +184,32 @@ public class PushPlugin extends CordovaPlugin {
 		}
 	}*/
 
-	// /**
-	//  * Stores the registration ID and app versionCode in the application's
-	//  * {@code SharedPreferences}.
-	//  *
-	//  * @param context application's context.
-	//  * @param regId registration ID
-	//  */
-	// private void storeRegistrationId(Context context, String regId) {
-	// 	final SharedPreferences prefs = getGCMPreferences(context);
-	// 	SharedPreferences.Editor editor = prefs.edit();
-	// 	editor.putString(PROPERTY_REG_ID, regId);
-	// 	editor.commit();
-	// }
+	/**
+	 * @return Application's {@code SharedPreferences}.
+	 */
+	private SharedPreferences getGCMPreferences(Context context) {
+		// This sample app persists the registration ID in shared preferences, but
+		// how you store the regID in your app is up to you.
+		Log.d(TAG, "Activity: " + getApplicationActivity().toString());
+		return context.getSharedPreferences(getApplicationActivity().toString(), Context.MODE_PRIVATE);
+	}
+
+	/**
+	 * Stores the registration ID and app versionCode in the application's
+	 * {@code SharedPreferences}.
+	 *
+	 * @param context application's context.
+	 * @param regId registration ID
+	 */
+	private void storeRegistrationId(Context context, String regId) {
+		final SharedPreferences prefs = getGCMPreferences(context);
+		String appVersion = getVersion();
+		Log.i(TAG, "Saving registrationId on version " + appVersion);
+		SharedPreferences.Editor editor = prefs.edit();
+		editor.putString(PROPERTY_REG_ID, regId);
+		editor.putString(PROPERTY_APPVERSION, appVersion);
+		editor.commit();
+	}
 
 	/*
 	 * Sends a json object to the client as parameter to a method which is defined in gECB.
@@ -191,6 +220,16 @@ public class PushPlugin extends CordovaPlugin {
 
 		if (gECB != null && gWebView != null) {
 			gWebView.sendJavascript(_d);
+		}
+	}
+
+	public String getVersion() {
+		try {
+			PackageManager packageManager = getApplicationActivity().getPackageManager();
+			return packageManager.getPackageInfo(getApplicationActivity().getPackageName(), 0).versionName.toString();
+		} catch (NameNotFoundException exception) {
+			Log.d(TAG, "NameNotFoundException!");
+			return "";
 		}
 	}
 
