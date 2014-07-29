@@ -18,6 +18,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import com.google.android.gms.common.ConnectionResult;
 import java.io.IOException;
+import android.os.AsyncTask;
 
 import java.util.Iterator;
 
@@ -89,16 +90,9 @@ public class PushPlugin extends CordovaPlugin {
 				regid = getRegistrationId(context);
 
 				if (regid.isEmpty()) {
-					// registerInBackground(gSenderID);
-					try {
-						regid = gcm.register(gSenderID);
-					} catch (IOException exception) {
-						Log.d(TAG, "IOException!");
-					}
-					storeRegistrationId(context, regid);
+					new AsyncRegister().execute(callbackContext);
 				}
 				result = true;
-				callbackContext.success(regid);
 			} catch (JSONException e) {
 				Log.e(TAG, "execute: Got JSON Exception " + e.getMessage());
 				result = false;
@@ -167,22 +161,24 @@ public class PushPlugin extends CordovaPlugin {
 	// 	return getSharedPreferences(PushHandlerActivity.class.getSimpleName(),
 	// 			Context.MODE_PRIVATE);
 	// }
-	/*
-	private void registerInBackground(String SenderId) {
-		new AsyncTask() {
-			@Override
-			protected String doInBackground(Void... params) {
-				String msg = "";
-				try {
-					if (gcm == null) {
-						gcm = GoogleCloudMessaging.getInstance(context);
-					}
-					regid = gcm.register(SenderId);
-					msg = "Device registered, registration ID="+regid;
+	
+	private class AsyncRegister extends AsyncTask<CallbackContext, Void, Void> {
+		@Override
+		protected Void doInBackground(CallbackContext... callbackContext) {
+			try {
+				if (gcm == null) {
+					gcm = GoogleCloudMessaging.getInstance(getApplicationContext());
 				}
+				regid = gcm.register(gSenderID);
+				Log.v(TAG, "Device registered, registration ID="+regid);
+				storeRegistrationId(getApplicationContext(), regid);
+				callbackContext[0].success(regid);
+			} catch (IOException ex) {
+				Log.d(TAG, "Got IOException on registerInBackground", ex);
 			}
+			return null;
 		}
-	}*/
+	}
 
 	/**
 	 * @return Application's {@code SharedPreferences}.
